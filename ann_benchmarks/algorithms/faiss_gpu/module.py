@@ -12,25 +12,17 @@ from ..base.module import BaseANN
 
 
 class FaissGPU(BaseANN):
-    def __init__(self, n_bits, n_probes):
-        self.name = "FaissGPU(n_bits={}, n_probes={})".format(n_bits, n_probes)
-        self._n_bits = n_bits
-        self._n_probes = n_probes
+    def __init__(self, nlist):
+        self.name = "FaissGPU(nlist={})".format(nlist)
+        self._nlist = nlist
         self._res = faiss.StandardGpuResources()
         self._index = None
 
     def fit(self, X):
         X = X.astype(numpy.float32)
-        self._index = faiss.GpuIndexIVFFlat(self._res, len(X[0]), self._n_bits, faiss.METRIC_L2)
-        # self._index = faiss.index_factory(len(X[0]),
-        #                                   "IVF%d,Flat" % self._n_bits)
-        # co = faiss.GpuClonerOptions()
-        # co.useFloat16 = True
-        # self._index = faiss.index_cpu_to_gpu(self._res, 0,
-        #                                      self._index, co)
+        self._index = faiss.GpuIndexIVFFlat(self._res, len(X[0]), self._nlist, faiss.METRIC_L2)
         self._index.train(X)
         self._index.add(X)
-        self._index.probes = self._n_probes
 
     def query(self, v, n):
         return [label for label, _ in self.query_with_distances(v, n)]
@@ -43,6 +35,9 @@ class FaissGPU(BaseANN):
             if l != -1:
                 r.append((l, d))
         return r
+
+    def set_query_arguments(self, nprobe):
+        self._index.nprobe = nprobe
 
     def batch_query(self, X, n):
         self.res = self._index.search(X.astype(numpy.float32), n)
